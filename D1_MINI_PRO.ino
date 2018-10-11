@@ -9,10 +9,11 @@
 
   Note that this sketch uses LED_BUILTIN to find the pin with the internal LED
 */
-
+//#include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Adafruit_SHT31.h>
 
 int ledState = LOW;
 
@@ -31,6 +32,7 @@ uint16 interval = 300;
 
 Adafruit_SSD1306 OLED(OLED_RESET);
 
+Adafruit_SHT31 sht31 = Adafruit_SHT31();
 void draw_Pixels()
 {
 	for(uint16 idx_x=0 ; idx_x<MAX_PIXEL_X ; idx_x+=5)
@@ -40,6 +42,12 @@ void draw_Pixels()
 			OLED.drawPixel(idx_x, idx_y, WHITE);
 		}
 	}
+}
+
+void DisHeader()
+{
+	OLED.setCursor(0,0);	OLED.setTextSize(1);/* 6x8 */
+	OLED.println("[Bob&Kara]");
 }
 
 void setup()
@@ -54,13 +62,59 @@ void setup()
 
 	OLED.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 
-	OLED.clearDisplay();
-	OLED.setTextColor(WHITE);
+	OLED.clearDisplay();	OLED.setTextColor(WHITE);
 	//draw_Pixels();
-
-	OLED.setCursor(0,0);	OLED.setTextSize(1);/* 6x8 */
-	OLED.println("[Bob&Kara]");
+	DisHeader();
+	OLED.display();
 	
+	if (! sht31.begin(0x45)) {   // Set to 0x44 for alternate i2c addr
+		Serial.println("Couldn't find SHT31");
+		//while (1) delay(1);
+	}
+}
+
+void GetTempHumi(float* temp, float* humi)
+{
+	*temp = sht31.readTemperature();
+	*humi = sht31.readHumidity();
+}
+
+void DisTempHumi(float temp, float humi)
+{
+	char tempstr[11];
+	
+	if (! isnan(temp))
+	{  // check if 'is not a number'
+		Serial.print("Temp *C = "); Serial.println(temp);
+		sprintf(tempstr, "Temp: %.1f", temp);
+	} else { 
+		Serial.println("Failed to read temperature");
+		sprintf(tempstr, "Temp: Error");
+	}
+	OLED.setCursor(0,1*8);	OLED.setTextSize(1);/* 6x8 */
+	OLED.println(tempstr);
+
+	if (! isnan(humi))
+	{  // check if 'is not a number'
+		Serial.print("Hum. % = "); Serial.println(humi);
+		sprintf(tempstr, "Humi: %.1f", humi);
+	} else { 
+		Serial.println("Failed to read humidity");
+		sprintf(tempstr, "Humi: Error");
+	}
+	OLED.setCursor(0,2*8);	OLED.setTextSize(1);/* 6x8 */
+	OLED.println(tempstr);
+}
+
+void DisUpdate()
+{
+	float temp, humi;
+
+	GetTempHumi(&temp, &humi);
+
+	OLED.clearDisplay();	OLED.setTextColor(WHITE);
+	DisHeader();
+	DisTempHumi(temp, humi);
 	OLED.display();
 }
 
@@ -78,5 +132,7 @@ void loop()
 			ledState = LOW;  // Note that this switches the LED *on*
 		}
 		digitalWrite(LED_BUILTIN, ledState);
+
+		DisUpdate();
 	}
 }
